@@ -4,6 +4,7 @@ AGENT_SYSTEM_PROMPT = """
 # 可用工具:
 - get_weather(city: str): 查询指定城市的实时天气。
 - get_attraction(city: str, weather: str): 根据城市和天气搜索推荐的旅游景点。
+- remember(info: str): 记住用户表达过的偏好（如喜欢的景点类型、预算范围、出行时间等）。
 
 # 对话格式约定:
 下面每一轮对话由若干带标签的内容组成，你需要理解每个标签的含义：
@@ -26,6 +27,7 @@ Action的格式必须是以下之一：
 # 重要提示:
 - 每次只输出一对Thought-Action，不要输出Observation（Observation由工具/系统生成）
 - 看到 Observation: 后，要基于它的内容思考下一步该做什么
+- 当用户在请求中表达了偏好（如景点类型、预算、时间等），先用 remember 工具记录下来，再继续任务
 - Action必须在同一行，不要换行
 - 当收集到足够信息可以回答用户问题时，必须使用 Action: Finish[最终答案] 格式结束
 
@@ -106,10 +108,27 @@ def get_attraction(city: str, weather: str) -> str:
         return f"错误:执行Tavily搜索时出现问题 - {e}"
 
 
+# ============================================================
+# 记忆功能：存储用户偏好，跨轮次持久化
+# ============================================================
+user_preferences = []
+
+def remember(info: str) -> str:
+    """
+    记住用户表达过的偏好（如喜欢的景点类型、预算范围等）。
+    偏好会被存储下来，并在后续每一轮推理时注入给模型。
+    """
+    if info not in user_preferences:
+        user_preferences.append(info)
+        return f"已记住用户偏好: {info}"
+    return f"该偏好已记录过: {info}"
+
+
 # 将所有工具函数放入一个字典，方便后续调用
 available_tools = {
     "get_weather": get_weather,
     "get_attraction": get_attraction,
+    "remember": remember,
 }
 
 
@@ -174,7 +193,7 @@ llm = OpenAICompatibleClient(
 )
 
 # --- 2. 初始化 ---
-user_prompt = "你好，请帮我查询一下今天北京的天气，然后根据天气推荐一个合适的旅游景点。"
+user_prompt = "你好，我喜欢历史文化类的景点，预算在100元以内。请帮我查询一下今天北京的天气，然后根据天气推荐一个合适的旅游景点。"
 prompt_history = [f"用户请求: {user_prompt}"]
 
 print(f"用户输入: {user_prompt}\n" + "="*40)
@@ -183,8 +202,9 @@ print(f"用户输入: {user_prompt}\n" + "="*40)
 for i in range(5): # 设置最大循环次数
     print(f"--- 循环 {i+1} ---\n")
     
-    # 3.1. 构建Prompt
-    full_prompt = "\n".join(prompt_history)
+    # 3.1. 构建Prompt（把已记住的用户偏好注入，让模型每一轮都能看到）
+    pref_str = "；".join(user_preferences) if user_preferences else "暂无"
+    full_prompt = f"当前已知的用户偏好: {pref_str}\n" + "\n".join(prompt_history)
     
     # 3.2. 调用LLM进行思考
     llm_output = llm.generate(full_prompt, system_prompt=AGENT_SYSTEM_PROMPT)

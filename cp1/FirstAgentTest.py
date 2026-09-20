@@ -176,14 +176,14 @@ from dotenv import load_dotenv
 # 这样后面的 os.getenv(...) 才能读到配置。
 load_dotenv()
 
-API_KEY = os.getenv("OPENAI_API_KEY", "")
-BASE_URL = os.getenv("OPENAI_BASE_URL", "")
-MODEL_ID = os.getenv("MODEL_NAME", "")
+API_KEY = os.getenv("LLM_API_KEY", "")
+BASE_URL = os.getenv("LLM_BASE_URL", "")
+MODEL_ID = os.getenv("LLM_MODEL_ID", "")
 
 if not all([API_KEY, BASE_URL, MODEL_ID]):
     raise SystemExit(
         "错误: 未找到完整的LLM配置。请在项目根目录的 .env 中设置 "
-        "OPENAI_API_KEY / OPENAI_BASE_URL / MODEL_NAME。"
+        "LLM_API_KEY / LLM_BASE_URL / LLM_MODEL_ID。"
     )
 
 llm = OpenAICompatibleClient(

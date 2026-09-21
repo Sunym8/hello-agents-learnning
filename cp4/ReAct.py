@@ -37,21 +37,30 @@ class ReActAgent:
         current_step = 0
 
         while current_step < self.max_steps:
+
             current_step += 1
             print(f"\n--- 第 {current_step} 步 ---")
 
             tools_desc = self.tool_executor.getAvailableTools()
             history_str = "\n".join(self.history)
+
             prompt = REACT_PROMPT_TEMPLATE.format(tools=tools_desc, question=question, history=history_str)
 
             messages = [{"role": "user", "content": prompt}]
             response_text = self.llm_client.think(messages=messages)
+
             if not response_text:
-                print("错误：LLM未能返回有效响应。"); break
+                print("错误：LLM未能返回有效响应。")
+                break
 
             thought, action = self._parse_output(response_text)
-            if thought: print(f"🤔 思考: {thought}")
-            if not action: print("警告：未能解析出有效的Action，流程终止。"); break
+
+            if thought: 
+                print(f"🤔 思考: {thought}")
+                
+            if not action: 
+                print("警告：未能解析出有效的Action，流程终止。")
+                break
             
             if action.startswith("Finish"):
                 # 如果是Finish指令，提取最终答案并结束
@@ -61,7 +70,8 @@ class ReActAgent:
             
             tool_name, tool_input = self._parse_action(action)
             if not tool_name or not tool_input:
-                self.history.append("Observation: 无效的Action格式，请检查。"); continue
+                self.history.append("Observation: 无效的Action格式，请检查。")
+                continue
 
             print(f"🎬 行动: {tool_name}[{tool_input}]")
             tool_function = self.tool_executor.getTool(tool_name)
